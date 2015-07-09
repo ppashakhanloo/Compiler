@@ -6,27 +6,28 @@ import java.util.Arrays;
 
 public class LexicalAnalyzer {
 	// Used for testing
-	public static void main(String[] args) throws Exception {
-		LexicalAnalyzer a = new LexicalAnalyzer("test.java");
-
-		while (true) {
-			try {
-				int s = a.NextToken();
-				if (s != 12)
-					System.out.println(s + "\t\t" + lexeme);
-				else
-					break;
-			} catch (Exception e) {
-				System.out.println(e);
-			}
-		}
-	}
+	// public static void main(String[] args) throws Exception {
+	// LexicalAnalyzer a = new LexicalAnalyzer("test.java");
+	//
+	// while (true) {
+	// try {
+	// int s = a.NextToken();
+	// if (s != 11)
+	// System.out.println(s + "\t\t" + lexeme);
+	// else
+	// break;
+	// } catch (Exception e) {
+	// System.out.println(e);
+	// }
+	// }
+	// }
 
 	public static int DATA_ADDRESS = Compiler.DATA_ADDRESS;
 	public static Type type;
 	public static boolean isDecleration;
 	public static int currentScope = 1;
 	public static String lexeme;
+	public static String old_lexeme;
 	public static int lineNumber = 1;
 	FileInputStream fileInput;
 
@@ -59,13 +60,7 @@ public class LexicalAnalyzer {
 			// file ended
 			if (r == -1)
 				// return "$";
-				return 35;
-
-			// first iteration
-			// if (r == 0) {
-			// r = fileInput.read();
-			// c = (char) r;
-			// }
+				return 34;
 
 			// detect line numbers
 			if (c == '\n') {
@@ -80,9 +75,12 @@ public class LexicalAnalyzer {
 				continue OUTER;
 			}
 
+			else if (c == '-')
+				return faceMinusSign();
+
 			// detect ordinary chars in scanner: + - ( ) { } , ; *
 			else if (c == '+' || c == ')' || c == '(' || c == '}' || c == '{'
-					|| c == ',' || c == ';' || c == '*' || c == '-') {
+					|| c == ',' || c == ';' || c == '*') {
 				// return faceOrdinaryCharSymbols(c);
 				switch (c) {
 				case '+':
@@ -97,24 +95,24 @@ public class LexicalAnalyzer {
 				case '}':
 					currentScope--;
 					readChar();
-					return 34;
+					return 33;
 				case '{':
 					currentScope++;
 					readChar();
-					return 33;
+					return 32;
 				case ',':
 					readChar();
 					return 5;
 				case ';':
 					isDecleration = false;
 					readChar();
-					return 9;
+					return 8;
 				case '*':
 					readChar();
 					return 3;
-				case '-':
-					readChar();
-					return 6;
+					// case '-':
+					// readChar();
+					// return 6;
 				}
 
 			}
@@ -143,22 +141,20 @@ public class LexicalAnalyzer {
 				return faceDigitSymbol();
 
 			// detect keyword, id
-			else if (isAlpha_(c))
+			else if (isAlpha(c))
 				return faceAlpha_Symbol();
 
 			// detect &&
 			else if (c == '&') {
-
 				readChar();
 				if (c == '&') {
 					readChar();
+					// return "&&";
 					return 0;
 				} else
 					throw new InvalidTokenException("Invalid Token at line ",
 							lineNumber, "&");
-
 			}
-			// return faceConditionalSign(c);
 
 			// detect = and == and <
 			else if (c == '=' || c == '<') {
@@ -167,18 +163,17 @@ public class LexicalAnalyzer {
 					if (c == '=') {
 						readChar();
 						// return "==";
-						return 32;
+						return 31;
 					} else
 						// return "=";
-						return 11;
+						return 10;
 				}
 				if (c == '<') {
 					readChar();
 					// return "<";
-					return 10;
+					return 9;
 				}
 			}
-			// return faceRelationalSign(c);
 
 			// detect unknown symbol
 			else
@@ -187,82 +182,114 @@ public class LexicalAnalyzer {
 
 	}
 
+	private int faceMinusSign() throws IOException, InvalidTokenException {
+
+		// a - -1
+
+		String token = c + "";
+		readChar();
+
+		if (!Character.isDigit(c) && c == ' ') {
+			// return "-";
+			return 6;
+		}
+
+		token += readIntSequence();
+
+		lexeme = token;
+
+		return 30;
+		// return "int_literal";
+
+	}
+
 	// ERROR HANDLER ROUTINE
 	private void faceUnknownSymbol() throws CompilerException, IOException {
 		readChar();
-		throw new CompilerException("Invalid token at line " + lineNumber + ".");
+		throw new CompilerException("Invalid character at line " + lineNumber
+				+ ".");
 	}
 
-	private int faceAlpha_Symbol() throws IOException {
+	private int faceAlpha_Symbol() throws IOException, CompilerException {
 		String token = "" + c;
 		readChar();
-		String temp1 = readAlpha_Num();
+		String temp1 = readAlphaNum();
 		token += temp1;
 
 		lexeme = token;
 
 		if (isKeyword(token)) {
 			if (token.equals("EOF"))
-				return 12;
+				return 11;
 			if (token.equals("class")) {
 				isDecleration = true;
 				type = Type.CLASS;
-				return 14;
+				return 13;
 			}
 			if (token.equals("public")) {
 				type = Type.METHOD;
 				isDecleration = true;
-				return 13;
+				return 12;
 			}
-			if (token.equals("static"))
-				return 16;
+			if (token.equals("static")) {
+				type = Type.METHOD;
+				return 15;
+			}
 			if (token.equals("void"))
-				return 17;
+				return 16;
 			if (token.equals("main"))
+				return 17;
+			if (token.equals("extends")) {
+				isDecleration = false;
 				return 18;
-			if (token.equals("extends"))
-				return 19;
+			}
 			if (token.equals("return"))
-				return 20;
+				return 19;
 			if (token.equals("boolean")) {
 				type = Type.BOOLEAN;
 				isDecleration = true;
-				return 21;
+				return 20;
 			}
 			if (token.equals("int")) {
 				type = Type.INT;
 				isDecleration = true;
-				return 22;
+				return 21;
 			}
 			if (token.equals("if"))
-				return 23;
+				return 22;
 			if (token.equals("else"))
-				return 24;
+				return 23;
 			if (token.equals("while"))
-				return 25;
+				return 24;
 			if (token.equals("System"))
-				return 26;
+				return 25;
 			if (token.equals("out"))
-				return 27;
+				return 26;
 			if (token.equals("println"))
-				return 28;
+				return 27;
 			if (token.equals("true"))
-				return 29;
+				return 28;
 			if (token.equals("false"))
-				return 30;
-			//
+				return 29;
+
 			// return token;
 		}
 
 		// return "id";
 		SymbolTable.put(lexeme, type, isDecleration, currentScope);
 
-		if (type.equals(Type.BOOLEAN) || type.equals(Type.INT)) {
+		if (isDecleration
+				&& (type.equals(Type.BOOLEAN) || type.equals(Type.INT))
+				&& !type.equals(Type.METHOD)) {
 			SymbolTable.setAdrs(lexeme, DATA_ADDRESS);
 			DATA_ADDRESS += 4;
 		}
 
-		return 15;
+		if (lexeme.length() > 12)
+			throw new CompilerException(
+					"Identifier length must be less than 13");
+
+		return 14;
 
 	}
 
@@ -273,12 +300,12 @@ public class LexicalAnalyzer {
 			token = "0" + readIntSequence();
 			lexeme = cleanUpDecimal(token);
 			// return "int_literal";
-			return 31;
+			return 30;
 		} else {
 			String temp = readIntSequence();
 			lexeme = cleanUpDecimal(temp);
 			// return "int_literal";
-			return 31;
+			return 30;
 		}
 
 	}
@@ -308,23 +335,23 @@ public class LexicalAnalyzer {
 		return result;
 	}
 
-	private String readAlpha_Num() throws IOException {
+	private String readAlphaNum() throws IOException {
 		String result = "";
-		while (isAlpha_Num(c)) {
+		while (isAlphaNum(c)) {
 			result += c;
 			readChar();
 		}
 		return result;
 	}
 
-	private boolean isAlpha_(char c) {
-		if (Character.isAlphabetic(c) || c == '_')
+	private boolean isAlpha(char c) {
+		if (Character.isLetter(c))
 			return true;
 		return false;
 	}
 
-	private boolean isAlpha_Num(char c) {
-		if (isAlpha_(c) || Character.isDigit(c))
+	private boolean isAlphaNum(char c) {
+		if (isAlpha(c) || Character.isDigit(c))
 			return true;
 		return false;
 	}
